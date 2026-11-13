@@ -1,0 +1,103 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { site, kinds } from '../../site';
+import { load } from '../../lib/data';
+import { url } from '../../lib/url';
+import { volLabel, pagesLabel, citation, roman } from '../../lib/format';
+
+export async function getStaticPaths() {
+  const { articles, discoveries } = await load();
+  return articles.map((a) => ({
+    params: { id: a.id },
+    props: { article: a, related: discoveries.filter((d) => d.art?.id === a.id) },
+  }));
+}
+const { article, related } = Astro.props;
+const a = article.data;
+const v = article.vol.data;
+const { Content } = await render(article);
+const pdfUrl = a.pdf ? new URL(url(a.pdf), Astro.site).href : undefined;
+const description = a.abstract ?? `${a.authors.join(', ')}. ${a.title}. ${volLabel(v.number)}.`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ScholarlyArticle',
+  headline: a.title,
+  ...(a.titleEn && { alternativeHeadline: a.titleEn }),
+  author: a.authors.map((name) => ({ '@type': 'Person', name })),
+  ...(a.abstract && { abstract: a.abstract }),
+  ...(a.keywords.length && { keywords: a.keywords.join(', ') }),
+  ...(a.pages && { pageStart: a.pages.from, pageEnd: a.pages.to }),
+  ...(v.year && { datePublished: String(v.year) }),
+  inLanguage: 'bg',
+  isPartOf: {
+    '@type': 'PublicationVolume',
+    volumeNumber: v.number,
+    isPartOf: { '@type': 'Periodical', name: site.title, ...(site.issn && { issn: site.issn }) },
+  },
+  publisher: { '@type': 'Organization', name: site.publisher },
+  url: new URL(Astro.url.pathname, Astro.site).href,
+};
+---
+<Base title={a.title} description={description} ogType="article">
+  <Fragment slot="head">
+    {/* Тагове за Google Scholar */}
+    <meta name="citation_title" content={a.title} />
+    {a.authors.map((name) => <meta name="citation_author" content={name} />)}
+    <meta name="citation_journal_title" content={site.title} />
+    <meta name="citation_volume" content={String(v.number)} />
+    {v.year && <meta name="citation_publication_date" content={String(v.year)} />}
+    {a.pages && <meta name="citation_firstpage" content={String(a.pages.from)} />}
+    {a.pages && <meta name="citation_lastpage" content={String(a.pages.to)} />}
+    {site.issn && <meta name="citation_issn" content={site.issn} />}
+    {pdfUrl && <meta name="citation_pdf_url" content={pdfUrl} />}
+    <meta name="citation_language" content="bg" />
+    <meta name="citation_publisher" content={site.publisher} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </Fragment>
+
+  <article>
+    <section class="page-head">
+      <div class="wrap">
+        <p class="crumbs">
+          <a href={url(`/tom/${v.number}/`)}>{volLabel(v.number)}</a> · {pagesLabel(a.pages)} · <span style="color: var(--seal)">{a.theme}</span>
+        </p>
+        <h1 style="font-size: clamp(32px, 4.4vw, 52px)">{a.title}</h1>
+        <p style="font-size: 19px">{a.authors.join(', ')}</p>
+      </div>
+    </section>
+    <div class="wrap two-col" style="padding-bottom: clamp(48px, 7vw, 96px)">
+      <div class="body stack" style="gap: 32px">
+        <section class="stack">
+          <h2 class="eyebrow" style="font-family: var(--sans)">Резюме</h2>
+          <p class="prose">{a.abstract ?? '[РЕЗЮМЕ НА СТАТИЯТА — 3–4 изречения: въпрос, извори, основен извод]'}</p>
+        </section>
+        <section class="stack" lang="en">
+          <h2 class="eyebrow" style="font-family: var(--sans)">Abstract</h2>
+          {a.titleEn && <p style="font-family: var(--serif); font-size: 20px">{a.titleEn}</p>}
+          <p class="prose">{a.abstractEn ?? '[ENGLISH ABSTRACT]'}</p>
+        </section>
+        <p class="muted" style="font-size: 15px">
+          Ключови думи: {a.keywords.length ? a.keywords.join(', ') : '[КЛЮЧОВИ ДУМИ]'}
+        </p>
+        <div class="prose"><Content /></div>
+      </div>
+      <aside>
+        {a.pdf ? <a class="btn" href={url(a.pdf)}>Пълен текст (PDF)</a> : <span class="muted">Пълен текст: [PDF]</span>}
+        <div class="stack" style="gap: 8px">
+          <span class="eyebrow">Как да цитирам</span>
+          <p class="cite">{citation(a, v)}</p>
+        </div>
+        {related.length > 0 && (
+          <div class="stack" style="gap: 8px">
+            <span class="eyebrow">Видео към статията</span>
+            {related.map((d) => (
+              <a href={url(`/otkritia/${d.id}/`)}>{d.data.title} ({kinds[d.data.kind][0].toLowerCase()})</a>
+            ))}
+          </div>
+        )}
+      </aside>
+    </div>
+  </article>
+</Base>

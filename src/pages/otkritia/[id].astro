@@ -1,0 +1,53 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Player from '../../components/Player.astro';
+import { site, kinds } from '../../site';
+import { load } from '../../lib/data';
+import { url } from '../../lib/url';
+import { volLabel } from '../../lib/format';
+
+export async function getStaticPaths() {
+  const { discoveries } = await load();
+  return discoveries.map((d) => ({ params: { id: d.id }, props: { discovery: d } }));
+}
+const { discovery } = Astro.props;
+const d = discovery.data;
+const art = discovery.art;
+const { Content } = await render(discovery);
+
+// VideoObject има смисъл само когато видеото наистина съществува.
+const jsonLd = d.youtubeId && {
+  '@context': 'https://schema.org',
+  '@type': 'VideoObject',
+  name: d.title,
+  description: d.summary,
+  thumbnailUrl: `https://i.ytimg.com/vi/${d.youtubeId}/hqdefault.jpg`,
+  embedUrl: `https://www.youtube-nocookie.com/embed/${d.youtubeId}`,
+  ...(d.date && { uploadDate: d.date.toISOString() }),
+  ...(d.duration && { duration: d.duration }),
+  inLanguage: 'bg',
+  publisher: { '@type': 'Organization', name: site.publisher },
+};
+---
+<Base title={d.title} description={d.summary} ogType={d.youtubeId ? 'video.other' : 'article'}>
+  {jsonLd && <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+  <div class="night">
+    <div class="wrap section stack" style="gap: 32px">
+      <p class="crumbs"><a href={url('/otkritia/')}>Всички открития</a></p>
+      <div class="feature">
+        <Player youtubeId={d.youtubeId} title={d.title} />
+        <div class="info">
+          <span class="eyebrow">{kinds[d.kind][0]}</span>
+          <h1 style="font-size: clamp(30px, 3.6vw, 44px)">{d.title}</h1>
+          <p class="muted">{d.summary}</p>
+          <p style="font-size: 14px; color: var(--on-night-dim)">Извор: {d.source ?? '[АРХИВ, ФОНД, ЕДИНИЦА]'}</p>
+          {art && (
+            <a class="btn" href={url(`/statii/${art.id}/`)}>Публикацията в {volLabel(art.vol.data.number)}</a>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wrap section"><div class="prose"><Content /></div></div>
+</Base>

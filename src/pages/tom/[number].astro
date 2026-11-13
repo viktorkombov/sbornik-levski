@@ -1,0 +1,47 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { site } from '../../site';
+import { load } from '../../lib/data';
+import { url } from '../../lib/url';
+import { volLabel, pagesLabel } from '../../lib/format';
+
+export async function getStaticPaths() {
+  const { volumes, articles } = await load();
+  return volumes.map((v) => ({
+    params: { number: String(v.data.number) },
+    props: { volume: v, articles: articles.filter((a) => a.vol.id === v.id) },
+  }));
+}
+const { volume, articles } = Astro.props;
+const { Content } = await render(volume);
+const label = volLabel(volume.data.number);
+---
+<Base title={label} description={`Съдържание на ${label} от ${site.title}.`}>
+  <section class="page-head">
+    <div class="wrap">
+      <p class="crumbs"><a href={url('/#katalog')}>Всички томове</a></p>
+      <h1>{label}</h1>
+      <p class="muted">{site.city}, {volume.data.year ?? '[ГОДИНА]'} · {articles.length} статии</p>
+    </div>
+  </section>
+  <div class="wrap two-col" style="padding-bottom: clamp(48px, 7vw, 96px)">
+    <div class="body">
+      <ol class="toc">
+        {articles.map((a) => (
+          <li>
+            <span>
+              <a href={url(`/statii/${a.id}/`)}>{a.data.title}</a>
+              <span class="who">{a.data.authors.join(', ')}</span>
+            </span>
+            <span class="pp">{pagesLabel(a.data.pages)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+    <aside>
+      <div class="prose"><Content /></div>
+      {volume.data.pdf && <a class="btn" href={url(volume.data.pdf)}>Целият том (PDF)</a>}
+    </aside>
+  </div>
+</Base>

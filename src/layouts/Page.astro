@@ -1,0 +1,16 @@
+---
+// Оформление за текстовите страници в src/pages/*.md
+import Base from './Base.astro';
+const { frontmatter } = Astro.props;
+---
+<Base title={frontmatter.title} description={frontmatter.description}>
+  <section class="page-head">
+    <div class="wrap">
+      <h1>{frontmatter.title}</h1>
+      {frontmatter.description && <p class="lead muted">{frontmatter.description}</p>}
+    </div>
+  </section>
+  <div class="wrap" style="padding-bottom: clamp(48px, 7vw, 96px)">
+    <div class="prose"><slot /></div>
+  </div>
+</Base>

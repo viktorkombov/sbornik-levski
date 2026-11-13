@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import DiscoveryCard from '../../components/DiscoveryCard.astro';
+import { kinds } from '../../site';
+import { load } from '../../lib/data';
+
+const { discoveries } = await load();
+const used = Object.keys(kinds).filter((k) => discoveries.some((d) => d.data.kind === k));
+---
+<Base title="Открития" description="Кратки филми за конкретни находки — документи, реликви и места, свързани с Васил Левски, с връзка към публикацията им в сборника.">
+  <div class="night" style="min-height: 60vh">
+    <div class="wrap section stack" style="gap: 36px">
+      <div class="split">
+        <div class="stack" style="flex: 1 1 420px; min-width: 0; gap: 10px">
+          <h1>Открития</h1>
+          <p class="muted" style="max-width: 40em">Кратки филми за конкретна находка — документ, реликва или място. Всяко видео води към публикацията си в сборника.</p>
+        </div>
+        <div class="chips" role="group" aria-label="Вид откритие">
+          <button class="chip" type="button" data-kind="all" aria-pressed="true">Всички</button>
+          {used.map((k) => <button class="chip" type="button" data-kind={k} aria-pressed="false">{kinds[k][1]}</button>)}
+        </div>
+      </div>
+      <div class="cards" id="cards">
+        {discoveries.map((d) => (
+          <DiscoveryCard id={d.id} title={d.data.title} kind={d.data.kind} youtubeId={d.data.youtubeId} />
+        ))}
+      </div>
+    </div>
+  </div>
+</Base>
+
+<script>
+  const chips = [...document.querySelectorAll<HTMLButtonElement>('button[data-kind]')];
+  const cards = [...document.querySelectorAll<HTMLElement>('#cards > [data-kind]')];
+  for (const chip of chips) {
+    chip.addEventListener('click', () => {
+      const kind = chip.dataset.kind;
+      for (const c of chips) c.setAttribute('aria-pressed', String(c === chip));
+      for (const card of cards) card.hidden = kind !== 'all' && card.dataset.kind !== kind;
+    });
+  }
+</script>

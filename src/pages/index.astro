@@ -1,0 +1,218 @@
+---
+import Base from '../layouts/Base.astro';
+import Player from '../components/Player.astro';
+import DiscoveryCard from '../components/DiscoveryCard.astro';
+import { site, themes, kinds } from '../site';
+import { load } from '../lib/data';
+import { volLabel, pagesLabel, citation } from '../lib/format';
+import { url } from '../lib/url';
+
+const { volumes, articles, discoveries } = await load();
+const [featured, ...rest] = discoveries;
+const spineHeights = [290, 310, 275, 300, 285];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Periodical',
+  name: site.title,
+  ...(site.issn && { issn: site.issn }),
+  publisher: { '@type': 'Museum', name: site.publisher, address: site.city },
+  inLanguage: 'bg',
+  url: new URL(url('/'), Astro.site).href,
+};
+---
+<Base>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+  <section class="night hero">
+    <div class="wrap">
+      <div class="hero-text">
+        <div class="eyebrow">Научна поредица · {site.city}</div>
+        <h1>{site.title}</h1>
+        <p class="lead muted">{site.description}</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#katalog">Разгледай томовете</a>
+          <a href={url('/za-avtori/')} style="color: var(--on-night)">Указания за авторите</a>
+        </div>
+      </div>
+      <div class="shelf-box">
+        <div class="shelf">
+          {volumes.map((v, i) => (
+            <a
+              class="spine"
+              href={url(`/tom/${v.data.number}/`)}
+              data-vol={v.id}
+              data-label={`${volLabel(v.data.number)} · ${v.data.year ?? '[ГОДИНА]'} · ${articles.filter((a) => a.vol.id === v.id).length} статии`}
+              style={`height: ${spineHeights[i % spineHeights.length]}px; background: ${v.data.spineColor}`}
+            >
+              <span class="t">{volLabel(v.data.number)}</span>
+              <span class="y">{v.data.year ?? '[ГОД.]'}</span>
+            </a>
+          ))}
+          <div class="spine next" aria-hidden="true"><span class="t">[СЛЕДВАЩ ТОМ]</span></div>
+        </div>
+        <div class="shelf-caption">
+          <span id="shelf-text" data-default={`Изберете том от рафта · общо ${articles.length} статии`}>
+            Изберете том от рафта · общо {articles.length} статии
+          </span>
+          <a id="shelf-link" href="#katalog">Към съдържанието</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap section" id="katalog">
+    <div class="stack" style="margin-bottom: 36px">
+      <h2>Каталог на статиите</h2>
+    </div>
+    <div class="filters">
+      <div class="row">
+        <div class="chips" role="group" aria-label="Том">
+          <button class="chip square" type="button" data-filter="vol" data-value="all" aria-pressed="true">Всички томове</button>
+          {volumes.map((v) => (
+            <button class="chip square" type="button" data-filter="vol" data-value={v.id} aria-pressed="false">{volLabel(v.data.number)}</button>
+          ))}
+        </div>
+        <label class="search">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4D5A63" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+          <span class="sr-only">Търсене в каталога</span>
+          <input id="q" type="search" placeholder="Автор, заглавие или тема" autocomplete="off" />
+        </label>
+      </div>
+      <div class="chips" role="group" aria-label="Тема">
+        <span class="muted" style="font-size: 14px; margin-right: 6px">Тема:</span>
+        <button class="chip" type="button" data-filter="theme" data-value="all" aria-pressed="true">Всички</button>
+        {themes.map((t) => (
+          <button class="chip" type="button" data-filter="theme" data-value={t} aria-pressed="false">{t}</button>
+        ))}
+      </div>
+    </div>
+
+    <ul class="articles" id="articles">
+      {articles.map((a) => (
+        <li
+          data-vol={a.vol.id}
+          data-theme={a.data.theme}
+          data-text={[a.data.title, a.data.titleEn, ...a.data.authors, a.data.theme, ...a.data.keywords].filter(Boolean).join(' ').toLowerCase()}
+        >
+          <details name="article">
+            <summary>
+              <span class="main">
+                <span class="ttl">{a.data.title}</span>
+                <span class="auth">{a.data.authors.join(', ')}</span>
+              </span>
+              <span class="meta">
+                <span>{volLabel(a.vol.data.number)} · {pagesLabel(a.data.pages)}</span>
+                <span class="theme">{a.data.theme}</span>
+                <span class="sign" aria-hidden="true"></span>
+              </span>
+            </summary>
+            <div class="more">
+              <div>
+                <span class="eyebrow">Резюме</span>
+                <p>{a.data.abstract ?? '[РЕЗЮМЕ НА СТАТИЯТА]'}</p>
+                <a class="btn" href={url(`/statii/${a.id}/`)}>Към статията</a>
+              </div>
+              <div>
+                <span class="eyebrow">Как да цитирам</span>
+                <p class="cite">{citation(a.data, a.vol.data)}</p>
+              </div>
+            </div>
+          </details>
+        </li>
+      ))}
+    </ul>
+    <div id="empty" hidden style="padding: 40px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px" class="muted">
+      <span>Няма статии, които отговарят на това търсене.</span>
+      <button class="btn" type="button" id="reset">Изчисти филтрите</button>
+    </div>
+    <p class="count" id="count" data-total={articles.length}>Показани {articles.length} от {articles.length} статии</p>
+  </section>
+
+  {featured && (
+    <section class="night">
+      <div class="wrap section stack" style="gap: 36px">
+        <div class="split">
+          <div class="stack" style="flex: 1 1 420px; min-width: 0; gap: 10px">
+            <h2>Открития</h2>
+            <p class="muted" style="max-width: 40em">Кратки филми за конкретна находка — документ, реликва или място. Всяко видео води към публикацията си в сборника.</p>
+          </div>
+          <a class="btn" href={url('/otkritia/')}>Всички открития</a>
+        </div>
+        <div class="feature">
+          <Player youtubeId={featured.data.youtubeId} title={featured.data.title} />
+          <div class="info">
+            <span class="eyebrow">{kinds[featured.data.kind][0]}</span>
+            <h3 style="font-size: 30px; line-height: 1.15">{featured.data.title}</h3>
+            <p class="muted">{featured.data.summary}</p>
+            <a class="btn" href={url(`/otkritia/${featured.id}/`)}>Към откритието</a>
+          </div>
+        </div>
+        {rest.length > 0 && (
+          <div class="cards">
+            {rest.slice(0, 4).map((d) => (
+              <DiscoveryCard id={d.id} title={d.data.title} kind={d.data.kind} youtubeId={d.data.youtubeId} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )}
+</Base>
+
+<script>
+  // Филтриране на каталога. Без JavaScript списъкът си остава пълен и четим.
+  const state = { vol: 'all', theme: 'all', q: '' };
+  const items = [...document.querySelectorAll<HTMLLIElement>('#articles > li')];
+  const chips = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+  const spines = [...document.querySelectorAll<HTMLAnchorElement>('.spine[data-vol]')];
+  const q = document.querySelector<HTMLInputElement>('#q')!;
+  const empty = document.querySelector<HTMLElement>('#empty')!;
+  const count = document.querySelector<HTMLElement>('#count')!;
+  const shelfText = document.querySelector<HTMLElement>('#shelf-text')!;
+  const shelfLink = document.querySelector<HTMLAnchorElement>('#shelf-link')!;
+
+  function render() {
+    let shown = 0;
+    for (const li of items) {
+      const ok =
+        (state.vol === 'all' || li.dataset.vol === state.vol) &&
+        (state.theme === 'all' || li.dataset.theme === state.theme) &&
+        (!state.q || li.dataset.text!.includes(state.q));
+      li.hidden = !ok;
+      if (ok) shown++;
+    }
+    for (const c of chips) {
+      c.setAttribute('aria-pressed', String(state[c.dataset.filter as 'vol' | 'theme'] === c.dataset.value));
+    }
+    let picked: HTMLAnchorElement | undefined;
+    for (const s of spines) {
+      const on = s.dataset.vol === state.vol;
+      if (on) { s.setAttribute('aria-current', 'true'); picked = s; } else s.removeAttribute('aria-current');
+    }
+    shelfText.textContent = picked ? picked.dataset.label! : shelfText.dataset.default!;
+    shelfLink.textContent = picked ? 'Страница на тома' : 'Към съдържанието';
+    shelfLink.href = picked ? picked.href : '#katalog';
+    empty.hidden = shown > 0;
+    count.textContent = `Показани ${shown} от ${count.dataset.total} статии`;
+  }
+
+  for (const c of chips) {
+    c.addEventListener('click', () => {
+      state[c.dataset.filter as 'vol' | 'theme'] = c.dataset.value!;
+      render();
+    });
+  }
+  for (const s of spines) {
+    s.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.vol = state.vol === s.dataset.vol ? 'all' : s.dataset.vol!;
+      render();
+    });
+  }
+  q.addEventListener('input', () => { state.q = q.value.trim().toLowerCase(); render(); });
+  document.querySelector('#reset')!.addEventListener('click', () => {
+    state.vol = 'all'; state.theme = 'all'; state.q = ''; q.value = '';
+    render();
+  });
+</script>

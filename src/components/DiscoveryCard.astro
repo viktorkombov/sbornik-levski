@@ -1,0 +1,15 @@
+---
+import { kinds } from '../site';
+import { url } from '../lib/url';
+interface Props { id: string; title: string; kind: string; youtubeId?: string }
+const { id, title, kind, youtubeId } = Astro.props;
+---
+<a class="card" href={url(`/otkritia/${id}/`)} data-kind={kind}>
+  <span class="thumb">
+    {youtubeId
+      ? <img src={`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`} alt="" loading="lazy" />
+      : '[КАДЪР]'}
+  </span>
+  <span class="eyebrow">{kinds[kind][0]}</span>
+  <span class="ttl">{title}</span>
+</a>
